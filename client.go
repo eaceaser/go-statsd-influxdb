@@ -28,7 +28,6 @@ import (
 	"log"
 	"os"
 	"strconv"
-	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -38,24 +37,7 @@ type StatsdClient struct {
 	trans        *transport
 	metricPrefix string
 	defaultTags  []Tag
-}
-
-type transport struct {
-	maxPacketSize int
-	tagFormat     *TagFormat
-
-	bufPool   chan []byte
-	buf       []byte
-	bufSize   int
-	bufLock   sync.Mutex
-	sendQueue chan []byte
-
-	shutdown     chan struct{}
-	shutdownOnce sync.Once
-	shutdownWg   sync.WaitGroup
-
-	lostPacketsPeriod  int64
-	lostPacketsOverall int64
+	tagFormat    *TagFormat
 }
 
 // NewClient creates new statsd client and starts background processing
@@ -93,8 +75,8 @@ func NewClient(addr string, options ...Option) *StatsdClient {
 
 	c.metricPrefix = opts.MetricPrefix
 	c.defaultTags = opts.DefaultTags
+	c.tagFormat = opts.TagFormat
 
-	c.trans.tagFormat = opts.TagFormat
 	c.trans.maxPacketSize = opts.MaxPacketSize
 	c.trans.buf = make([]byte, 0, c.trans.bufSize)
 	c.trans.bufPool = make(chan []byte, opts.BufPoolCapacity)
@@ -160,13 +142,13 @@ func (c *StatsdClient) Incr(stat string, count int64, tags ...Tag) {
 
 		c.trans.buf = append(c.trans.buf, []byte(c.metricPrefix)...)
 		c.trans.buf = append(c.trans.buf, []byte(stat)...)
-		if c.trans.tagFormat.Placement == TagPlacementName {
+		if c.tagFormat.Placement == TagPlacementName {
 			c.trans.buf = c.formatTags(c.trans.buf, tags)
 		}
 		c.trans.buf = append(c.trans.buf, ':')
 		c.trans.buf = strconv.AppendInt(c.trans.buf, count, 10)
 		c.trans.buf = append(c.trans.buf, []byte("|c")...)
-		if c.trans.tagFormat.Placement == TagPlacementSuffix {
+		if c.tagFormat.Placement == TagPlacementSuffix {
 			c.trans.buf = c.formatTags(c.trans.buf, tags)
 		}
 		c.trans.buf = append(c.trans.buf, '\n')
@@ -191,13 +173,13 @@ func (c *StatsdClient) FIncr(stat string, count float64, tags ...Tag) {
 
 		c.trans.buf = append(c.trans.buf, []byte(c.metricPrefix)...)
 		c.trans.buf = append(c.trans.buf, []byte(stat)...)
-		if c.trans.tagFormat.Placement == TagPlacementName {
+		if c.tagFormat.Placement == TagPlacementName {
 			c.trans.buf = c.formatTags(c.trans.buf, tags)
 		}
 		c.trans.buf = append(c.trans.buf, ':')
 		c.trans.buf = strconv.AppendFloat(c.trans.buf, count, 'f', -1, 64)
 		c.trans.buf = append(c.trans.buf, []byte("|c")...)
-		if c.trans.tagFormat.Placement == TagPlacementSuffix {
+		if c.tagFormat.Placement == TagPlacementSuffix {
 			c.trans.buf = c.formatTags(c.trans.buf, tags)
 		}
 		c.trans.buf = append(c.trans.buf, '\n')
@@ -219,13 +201,13 @@ func (c *StatsdClient) Timing(stat string, delta int64, tags ...Tag) {
 
 	c.trans.buf = append(c.trans.buf, []byte(c.metricPrefix)...)
 	c.trans.buf = append(c.trans.buf, []byte(stat)...)
-	if c.trans.tagFormat.Placement == TagPlacementName {
+	if c.tagFormat.Placement == TagPlacementName {
 		c.trans.buf = c.formatTags(c.trans.buf, tags)
 	}
 	c.trans.buf = append(c.trans.buf, ':')
 	c.trans.buf = strconv.AppendInt(c.trans.buf, delta, 10)
 	c.trans.buf = append(c.trans.buf, []byte("|ms")...)
-	if c.trans.tagFormat.Placement == TagPlacementSuffix {
+	if c.tagFormat.Placement == TagPlacementSuffix {
 		c.trans.buf = c.formatTags(c.trans.buf, tags)
 	}
 	c.trans.buf = append(c.trans.buf, '\n')
@@ -244,13 +226,13 @@ func (c *StatsdClient) PrecisionTiming(stat string, delta time.Duration, tags ..
 
 	c.trans.buf = append(c.trans.buf, []byte(c.metricPrefix)...)
 	c.trans.buf = append(c.trans.buf, []byte(stat)...)
-	if c.trans.tagFormat.Placement == TagPlacementName {
+	if c.tagFormat.Placement == TagPlacementName {
 		c.trans.buf = c.formatTags(c.trans.buf, tags)
 	}
 	c.trans.buf = append(c.trans.buf, ':')
 	c.trans.buf = strconv.AppendFloat(c.trans.buf, float64(delta)/float64(time.Millisecond), 'f', -1, 64)
 	c.trans.buf = append(c.trans.buf, []byte("|ms")...)
-	if c.trans.tagFormat.Placement == TagPlacementSuffix {
+	if c.tagFormat.Placement == TagPlacementSuffix {
 		c.trans.buf = c.formatTags(c.trans.buf, tags)
 	}
 	c.trans.buf = append(c.trans.buf, '\n')
@@ -265,14 +247,14 @@ func (c *StatsdClient) igauge(stat string, sign []byte, value int64, tags ...Tag
 
 	c.trans.buf = append(c.trans.buf, []byte(c.metricPrefix)...)
 	c.trans.buf = append(c.trans.buf, []byte(stat)...)
-	if c.trans.tagFormat.Placement == TagPlacementName {
+	if c.tagFormat.Placement == TagPlacementName {
 		c.trans.buf = c.formatTags(c.trans.buf, tags)
 	}
 	c.trans.buf = append(c.trans.buf, ':')
 	c.trans.buf = append(c.trans.buf, sign...)
 	c.trans.buf = strconv.AppendInt(c.trans.buf, value, 10)
 	c.trans.buf = append(c.trans.buf, []byte("|g")...)
-	if c.trans.tagFormat.Placement == TagPlacementSuffix {
+	if c.tagFormat.Placement == TagPlacementSuffix {
 		c.trans.buf = c.formatTags(c.trans.buf, tags)
 	}
 	c.trans.buf = append(c.trans.buf, '\n')
@@ -313,14 +295,14 @@ func (c *StatsdClient) fgauge(stat string, sign []byte, value float64, tags ...T
 
 	c.trans.buf = append(c.trans.buf, []byte(c.metricPrefix)...)
 	c.trans.buf = append(c.trans.buf, []byte(stat)...)
-	if c.trans.tagFormat.Placement == TagPlacementName {
+	if c.tagFormat.Placement == TagPlacementName {
 		c.trans.buf = c.formatTags(c.trans.buf, tags)
 	}
 	c.trans.buf = append(c.trans.buf, ':')
 	c.trans.buf = append(c.trans.buf, sign...)
 	c.trans.buf = strconv.AppendFloat(c.trans.buf, value, 'f', -1, 64)
 	c.trans.buf = append(c.trans.buf, []byte("|g")...)
-	if c.trans.tagFormat.Placement == TagPlacementSuffix {
+	if c.tagFormat.Placement == TagPlacementSuffix {
 		c.trans.buf = c.formatTags(c.trans.buf, tags)
 	}
 	c.trans.buf = append(c.trans.buf, '\n')
@@ -356,13 +338,13 @@ func (c *StatsdClient) SetAdd(stat string, value string, tags ...Tag) {
 
 	c.trans.buf = append(c.trans.buf, []byte(c.metricPrefix)...)
 	c.trans.buf = append(c.trans.buf, []byte(stat)...)
-	if c.trans.tagFormat.Placement == TagPlacementName {
+	if c.tagFormat.Placement == TagPlacementName {
 		c.trans.buf = c.formatTags(c.trans.buf, tags)
 	}
 	c.trans.buf = append(c.trans.buf, ':')
 	c.trans.buf = append(c.trans.buf, []byte(value)...)
 	c.trans.buf = append(c.trans.buf, []byte("|s")...)
-	if c.trans.tagFormat.Placement == TagPlacementSuffix {
+	if c.tagFormat.Placement == TagPlacementSuffix {
 		c.trans.buf = c.formatTags(c.trans.buf, tags)
 	}
 	c.trans.buf = append(c.trans.buf, '\n')

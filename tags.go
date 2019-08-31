@@ -89,18 +89,18 @@ func (c *StatsdClient) formatTags(buf []byte, tags []Tag) []byte {
 		return buf
 	}
 
-	buf = append(buf, []byte(c.trans.tagFormat.FirstSeparator)...)
+	buf = append(buf, []byte(c.tagFormat.FirstSeparator)...)
 	for i := range c.defaultTags {
-		buf = c.defaultTags[i].Append(buf, c.trans.tagFormat)
+		buf = c.defaultTags[i].Append(buf, c.tagFormat)
 		if i != tagsLen-1 {
-			buf = append(buf, c.trans.tagFormat.OtherSeparator)
+			buf = append(buf, c.tagFormat.OtherSeparator)
 		}
 	}
 
 	for i := range tags {
-		buf = tags[i].Append(buf, c.trans.tagFormat)
+		buf = tags[i].Append(buf, c.tagFormat)
 		if i+len(c.defaultTags) != tagsLen-1 {
-			buf = append(buf, c.trans.tagFormat.OtherSeparator)
+			buf = append(buf, c.tagFormat.OtherSeparator)
 		}
 	}
 

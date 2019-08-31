@@ -27,9 +27,27 @@ SOFTWARE.
 import (
 	"context"
 	"net"
+	"sync"
 	"sync/atomic"
 	"time"
 )
+
+type transport struct {
+	maxPacketSize int
+
+	bufPool   chan []byte
+	buf       []byte
+	bufSize   int
+	bufLock   sync.Mutex
+	sendQueue chan []byte
+
+	shutdown     chan struct{}
+	shutdownOnce sync.Once
+	shutdownWg   sync.WaitGroup
+
+	lostPacketsPeriod  int64
+	lostPacketsOverall int64
+}
 
 // flushLoop makes sure metrics are flushed every flushInterval
 func (t *transport) flushLoop(flushInterval time.Duration) {
