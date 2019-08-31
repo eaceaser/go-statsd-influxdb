@@ -12,7 +12,7 @@ type InfluxDBClient struct {
 }
 
 type InfluxTag struct {
-	Name string
+	Name  string
 	Value string
 }
 
@@ -23,31 +23,30 @@ const (
 	influxFieldInt
 	influxFieldFloat
 	influxFieldBool
-
 )
 
 type InfluxField struct {
-	name string
-	t influxFieldType
-	strvalue string
-	intvalue int64
+	name       string
+	t          influxFieldType
+	strvalue   string
+	intvalue   int64
 	floatvalue float64
-	boolvalue bool
+	boolvalue  bool
 }
 
 func StringField(name string, value string) InfluxField {
 	return InfluxField{
-		name: name,
-		t: influxFieldString,
+		name:     name,
+		t:        influxFieldString,
 		strvalue: value,
 	}
 }
 
 func IntField(name string, value int64) InfluxField {
 	return InfluxField{
-		name:       name,
-		t:          influxFieldInt,
-		intvalue:   value,
+		name:     name,
+		t:        influxFieldInt,
+		intvalue: value,
 	}
 }
 
@@ -61,9 +60,9 @@ func FloatField(name string, value float64) InfluxField {
 
 func BoolField(name string, value bool) InfluxField {
 	return InfluxField{
-		name:       name,
-		t:          influxFieldBool,
-		boolvalue:  value,
+		name:      name,
+		t:         influxFieldBool,
+		boolvalue: value,
 	}
 }
 
@@ -99,7 +98,7 @@ func NewInfluxDBClient(addr string, options ...Option) *InfluxDBClient {
 		ReconnectInterval: DefaultReconnectInterval,
 		ReportInterval:    DefaultReportInterval,
 		RetryTimeout:      DefaultRetryTimeout,
-		Logger:            log.New(os.Stderr, DefaultLogPrefix, log.LstdFlags),
+		Logger:            log.New(os.Stderr, DefaultInfluxDBLogPrefix, log.LstdFlags),
 		BufPoolCapacity:   DefaultBufPoolCapacity,
 		SendQueueCapacity: DefaultSendQueueCapacity,
 		SendLoopCount:     DefaultSendLoopCount,
@@ -149,7 +148,7 @@ func (c *InfluxDBClient) append(measurement string, tags []InfluxTag, fields []I
 	for i, field := range fields {
 		c.trans.buf = field.Append(c.trans.buf)
 
-		if i < len(fields) - 1 {
+		if i < len(fields)-1 {
 			c.trans.buf = append(c.trans.buf, ',')
 		}
 	}

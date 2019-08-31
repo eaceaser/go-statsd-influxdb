@@ -2,6 +2,7 @@ package statsd_influxdb
 
 /*
 
+Copyright (c) 2019 Edward Ceaser
 Copyright (c) 2017 Andrey Smirnov
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -36,7 +37,8 @@ const (
 	DefaultReconnectInterval = time.Duration(0)
 	DefaultReportInterval    = time.Minute
 	DefaultRetryTimeout      = 5 * time.Second
-	DefaultLogPrefix         = "[STATSD] "
+	DefaultStatsdLogPrefix   = "[STATSD] "
+	DefaultInfluxDBLogPrefix = "[INFLUXDB] "
 	DefaultBufPoolCapacity   = 20
 	DefaultSendQueueCapacity = 10
 	DefaultSendLoopCount     = 1

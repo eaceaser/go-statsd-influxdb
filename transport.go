@@ -50,7 +50,7 @@ type transport struct {
 }
 
 func newTransport(opts *ClientOptions) *transport {
-	t := &transport {
+	t := &transport{
 		shutdown: make(chan struct{}),
 	}
 

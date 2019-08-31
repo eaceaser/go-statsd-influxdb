@@ -54,7 +54,7 @@ func NewStatsdClient(addr string, options ...Option) *StatsdClient {
 		ReconnectInterval: DefaultReconnectInterval,
 		ReportInterval:    DefaultReportInterval,
 		RetryTimeout:      DefaultRetryTimeout,
-		Logger:            log.New(os.Stderr, DefaultLogPrefix, log.LstdFlags),
+		Logger:            log.New(os.Stderr, DefaultStatsdLogPrefix, log.LstdFlags),
 		BufPoolCapacity:   DefaultBufPoolCapacity,
 		SendQueueCapacity: DefaultSendQueueCapacity,
 		SendLoopCount:     DefaultSendLoopCount,
