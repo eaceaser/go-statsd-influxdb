@@ -9,13 +9,13 @@ import (
 func TestInfluxDBClient(t *testing.T) {
 	inSocket, received := setupListener(t)
 
-	fields := []InfluxField{
+	fields := []InfluxDBField{
 		StringField("string", "blah"),
 		StringField("quotedstring", "\"quoted\""),
 		IntField("int", 12),
 		FloatField("float", 10.23)}
 
-	tags := []InfluxTag{{"herp", "derp"}, {"foo", "bar"}}
+	tags := []InfluxDBTag{{"herp", "derp"}, {"foo", "bar"}}
 	client := NewInfluxDBClient(inSocket.LocalAddr().String())
 	ts := time.Unix(1555734000, 0) // 2019-04-20 04:20 UTC
 
@@ -37,7 +37,7 @@ func TestInfluxDBClient(t *testing.T) {
 		func() { client.Send("testmetric", tags, fields) },
 		[]string{`testmetric,herp=derp,foo=bar string="blah",quotedstring="\"quoted\"",int=12i,float=10.23`}))
 	t.Run("TS", compareOutput(
-		func() { client.SendWithTimestamp("testmetric", nil, []InfluxField{FloatField("test", 1.2)}, ts) },
+		func() { client.SendWithTimestamp("testmetric", nil, []InfluxDBField{FloatField("test", 1.2)}, ts) },
 		[]string{"testmetric test=1.2 1555734000000000000"}))
 
 	_ = client.Close()
@@ -73,8 +73,8 @@ func BenchmarkInfluxDBClient(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		c.SendWithTimestamp("test",
-			[]InfluxTag{{"t1", "v1"}, {"t2", "v2"}},
-			[]InfluxField{StringField("s", "f"), IntField("i", 420), FloatField("f", 4.20), BoolField("b", true)},
+			[]InfluxDBTag{{"t1", "v1"}, {"t2", "v2"}},
+			[]InfluxDBField{StringField("s", "f"), IntField("i", 420), FloatField("f", 4.20), BoolField("b", true)},
 			ts)
 	}
 	_ = c.Close()

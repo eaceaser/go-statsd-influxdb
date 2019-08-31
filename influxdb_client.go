@@ -11,12 +11,12 @@ type InfluxDBClient struct {
 	trans *transport
 }
 
-type InfluxTag struct {
+type InfluxDBTag struct {
 	Name  string
 	Value string
 }
 
-type influxFieldType byte
+type influxDBFieldType byte
 
 const (
 	influxFieldString = iota
@@ -25,48 +25,48 @@ const (
 	influxFieldBool
 )
 
-type InfluxField struct {
+type InfluxDBField struct {
 	name       string
-	t          influxFieldType
+	t          influxDBFieldType
 	strvalue   string
 	intvalue   int64
 	floatvalue float64
 	boolvalue  bool
 }
 
-func StringField(name string, value string) InfluxField {
-	return InfluxField{
+func StringField(name string, value string) InfluxDBField {
+	return InfluxDBField{
 		name:     name,
 		t:        influxFieldString,
 		strvalue: value,
 	}
 }
 
-func IntField(name string, value int64) InfluxField {
-	return InfluxField{
+func IntField(name string, value int64) InfluxDBField {
+	return InfluxDBField{
 		name:     name,
 		t:        influxFieldInt,
 		intvalue: value,
 	}
 }
 
-func FloatField(name string, value float64) InfluxField {
-	return InfluxField{
+func FloatField(name string, value float64) InfluxDBField {
+	return InfluxDBField{
 		name:       name,
 		t:          influxFieldFloat,
 		floatvalue: value,
 	}
 }
 
-func BoolField(name string, value bool) InfluxField {
-	return InfluxField{
+func BoolField(name string, value bool) InfluxDBField {
+	return InfluxDBField{
 		name:      name,
 		t:         influxFieldBool,
 		boolvalue: value,
 	}
 }
 
-func (f *InfluxField) Append(buf []byte) []byte {
+func (f *InfluxDBField) Append(buf []byte) []byte {
 	buf = append(buf, []byte(f.name)...)
 	buf = append(buf, '=')
 
@@ -123,15 +123,15 @@ func (c *InfluxDBClient) Close() error {
 	return nil
 }
 
-func (c *InfluxDBClient) Send(measurement string, tags []InfluxTag, fields []InfluxField) {
+func (c *InfluxDBClient) Send(measurement string, tags []InfluxDBTag, fields []InfluxDBField) {
 	c.append(measurement, tags, fields, nil)
 }
 
-func (c *InfluxDBClient) SendWithTimestamp(measurement string, tags []InfluxTag, fields []InfluxField, ts time.Time) {
+func (c *InfluxDBClient) SendWithTimestamp(measurement string, tags []InfluxDBTag, fields []InfluxDBField, ts time.Time) {
 	c.append(measurement, tags, fields, &ts)
 }
 
-func (c *InfluxDBClient) append(measurement string, tags []InfluxTag, fields []InfluxField, ts *time.Time) {
+func (c *InfluxDBClient) append(measurement string, tags []InfluxDBTag, fields []InfluxDBField, ts *time.Time) {
 	if len(fields) == 0 {
 		return
 	}
@@ -164,7 +164,7 @@ func (c *InfluxDBClient) append(measurement string, tags []InfluxTag, fields []I
 	c.trans.bufLock.Unlock()
 }
 
-func appendTags(buf []byte, tags []InfluxTag) []byte {
+func appendTags(buf []byte, tags []InfluxDBTag) []byte {
 	for _, tag := range tags {
 		buf = append(buf, ',')
 		buf = append(buf, []byte(tag.Name)...)
