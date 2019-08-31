@@ -2,6 +2,7 @@ package statsd_influxdb
 
 /*
 
+Copyright (c) 2019 Edward Ceaser
 Copyright (c) 2017 Andrey Smirnov
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
