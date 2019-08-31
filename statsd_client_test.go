@@ -77,7 +77,7 @@ func TestCommands(t *testing.T) {
 		MaxPacketSize(1400),
 		ReconnectInterval(10*time.Second))
 	clientTagged := NewStatsdClient(inSocket.LocalAddr().String(),
-		TagStyle(TagFormatDatadog),
+		TagStyle(StatsdTagFormatDatadog),
 		DefaultTags(StringTag("host", "example.com"), Int64Tag("weight", 38)))
 
 	compareOutput := func(actions func(), expected []string) func(*testing.T) {

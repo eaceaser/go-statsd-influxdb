@@ -27,7 +27,7 @@ SOFTWARE.
 import "testing"
 
 func TestTags(t *testing.T) {
-	compare := func(tag Tag, style *TagFormat, expected string) func(*testing.T) {
+	compare := func(tag StatsdTag, style *StatsdTagFormat, expected string) func(*testing.T) {
 		return func(t *testing.T) {
 			buf := tag.Append([]byte{}, style)
 
@@ -38,21 +38,21 @@ func TestTags(t *testing.T) {
 	}
 
 	t.Run("StringDatadog",
-		compare(StringTag("name", "value"), TagFormatDatadog, "name:value"))
+		compare(StringTag("name", "value"), StatsdTagFormatDatadog, "name:value"))
 	t.Run("StringInflux",
-		compare(StringTag("name", "value"), TagFormatInfluxDB, "name=value"))
+		compare(StringTag("name", "value"), StatsdTagFormatInfluxDB, "name=value"))
 	t.Run("IntDatadog",
-		compare(IntTag("foo", -33), TagFormatDatadog, "foo:-33"))
+		compare(IntTag("foo", -33), StatsdTagFormatDatadog, "foo:-33"))
 	t.Run("IntInflux",
-		compare(IntTag("foo", -33), TagFormatInfluxDB, "foo=-33"))
+		compare(IntTag("foo", -33), StatsdTagFormatInfluxDB, "foo=-33"))
 	t.Run("Int64Datadog",
-		compare(Int64Tag("foo", 1024*1024*1024*1024), TagFormatDatadog, "foo:1099511627776"))
+		compare(Int64Tag("foo", 1024*1024*1024*1024), StatsdTagFormatDatadog, "foo:1099511627776"))
 	t.Run("Int64Influx",
-		compare(Int64Tag("foo", 1024*1024*1024*1024), TagFormatInfluxDB, "foo=1099511627776"))
+		compare(Int64Tag("foo", 1024*1024*1024*1024), StatsdTagFormatInfluxDB, "foo=1099511627776"))
 }
 
 func TestFormatTags(t *testing.T) {
-	compare := func(tags []Tag, style *TagFormat, expected string) func(*testing.T) {
+	compare := func(tags []StatsdTag, style *StatsdTagFormat, expected string) func(*testing.T) {
 		return func(t *testing.T) {
 			client := NewStatsdClient("127.0.0.1:4444", TagStyle(style), DefaultTags(StringTag("host", "foo")))
 			buf := client.formatTags([]byte{}, tags)
@@ -64,7 +64,7 @@ func TestFormatTags(t *testing.T) {
 	}
 
 	t.Run("Datadog",
-		compare([]Tag{StringTag("type", "web"), IntTag("status", 200)}, TagFormatDatadog, "|#host:foo,type:web,status:200"))
+		compare([]StatsdTag{StringTag("type", "web"), IntTag("status", 200)}, StatsdTagFormatDatadog, "|#host:foo,type:web,status:200"))
 	t.Run("Influx",
-		compare([]Tag{StringTag("type", "web"), IntTag("status", 200)}, TagFormatInfluxDB, ",host=foo,type=web,status=200"))
+		compare([]StatsdTag{StringTag("type", "web"), IntTag("status", 200)}, StatsdTagFormatInfluxDB, ",host=foo,type=web,status=200"))
 }

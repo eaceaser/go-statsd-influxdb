@@ -102,7 +102,7 @@ func NewInfluxDBClient(addr string, options ...Option) *InfluxDBClient {
 		BufPoolCapacity:   DefaultBufPoolCapacity,
 		SendQueueCapacity: DefaultSendQueueCapacity,
 		SendLoopCount:     DefaultSendLoopCount,
-		TagFormat:         TagFormatInfluxDB,
+		TagFormat:         StatsdTagFormatInfluxDB,
 	}
 
 	for _, option := range options {

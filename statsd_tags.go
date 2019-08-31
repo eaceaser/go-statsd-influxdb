@@ -26,14 +26,14 @@ SOFTWARE.
 
 import "strconv"
 
-// Tag placement constants
+// StatsdTag placement constants
 const (
 	TagPlacementName = iota
 	TagPlacementSuffix
 )
 
-// TagFormat controls tag formatting style
-type TagFormat struct {
+// StatsdTagFormat controls tag formatting style
+type StatsdTagFormat struct {
 	// FirstSeparator is put after metric name and before first tag
 	FirstSeparator string
 	// Placement specifies part of the message to append tags to
@@ -44,14 +44,14 @@ type TagFormat struct {
 	KeyValueSeparator byte
 }
 
-// Tag types
+// StatsdTag types
 const (
 	typeString = iota
 	typeInt64
 )
 
-// Tag is metric-specific tag
-type Tag struct {
+// StatsdTag is metric-specific tag
+type StatsdTag struct {
 	name     string
 	strvalue string
 	intvalue int64
@@ -59,7 +59,7 @@ type Tag struct {
 }
 
 // Append formats tag and appends it to the buffer
-func (tag Tag) Append(buf []byte, style *TagFormat) []byte {
+func (tag StatsdTag) Append(buf []byte, style *StatsdTagFormat) []byte {
 	buf = append(buf, []byte(tag.name)...)
 	buf = append(buf, style.KeyValueSeparator)
 	if tag.typ == typeString {
@@ -68,22 +68,22 @@ func (tag Tag) Append(buf []byte, style *TagFormat) []byte {
 	return strconv.AppendInt(buf, tag.intvalue, 10)
 }
 
-// StringTag creates Tag with string value
-func StringTag(name, value string) Tag {
-	return Tag{name: name, strvalue: value, typ: typeString}
+// StringTag creates StatsdTag with string value
+func StringTag(name, value string) StatsdTag {
+	return StatsdTag{name: name, strvalue: value, typ: typeString}
 }
 
-// IntTag creates Tag with integer value
-func IntTag(name string, value int) Tag {
-	return Tag{name: name, intvalue: int64(value), typ: typeInt64}
+// IntTag creates StatsdTag with integer value
+func IntTag(name string, value int) StatsdTag {
+	return StatsdTag{name: name, intvalue: int64(value), typ: typeInt64}
 }
 
-// Int64Tag creates Tag with integer value
-func Int64Tag(name string, value int64) Tag {
-	return Tag{name: name, intvalue: value, typ: typeInt64}
+// Int64Tag creates StatsdTag with integer value
+func Int64Tag(name string, value int64) StatsdTag {
+	return StatsdTag{name: name, intvalue: value, typ: typeInt64}
 }
 
-func (c *StatsdClient) formatTags(buf []byte, tags []Tag) []byte {
+func (c *StatsdClient) formatTags(buf []byte, tags []StatsdTag) []byte {
 	tagsLen := len(c.defaultTags) + len(tags)
 	if tagsLen == 0 {
 		return buf
@@ -108,20 +108,20 @@ func (c *StatsdClient) formatTags(buf []byte, tags []Tag) []byte {
 }
 
 var (
-	// TagFormatInfluxDB is format for InfluxDB StatsD telegraf plugin
+	// StatsdTagFormatInfluxDB is format for InfluxDB StatsD telegraf plugin
 	//
 	// Docs: https://github.com/influxdata/telegraf/tree/master/plugins/inputs/statsd
-	TagFormatInfluxDB = &TagFormat{
+	StatsdTagFormatInfluxDB = &StatsdTagFormat{
 		Placement:         TagPlacementName,
 		FirstSeparator:    ",",
 		OtherSeparator:    ',',
 		KeyValueSeparator: '=',
 	}
 
-	// TagFormatDatadog is format for DogStatsD (Datadog Agent)
+	// StatsdTagFormatDatadog is format for DogStatsD (Datadog Agent)
 	//
 	// Docs: https://docs.datadoghq.com/developers/dogstatsd/#datagram-format
-	TagFormatDatadog = &TagFormat{
+	StatsdTagFormatDatadog = &StatsdTagFormat{
 		Placement:         TagPlacementSuffix,
 		FirstSeparator:    "|#",
 		OtherSeparator:    ',',

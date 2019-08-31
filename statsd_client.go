@@ -36,8 +36,8 @@ import (
 type StatsdClient struct {
 	trans        *transport
 	metricPrefix string
-	defaultTags  []Tag
-	tagFormat    *TagFormat
+	defaultTags  []StatsdTag
+	tagFormat    *StatsdTagFormat
 }
 
 // NewStatsdClient creates new statsd client and starts background processing
@@ -58,7 +58,7 @@ func NewStatsdClient(addr string, options ...Option) *StatsdClient {
 		BufPoolCapacity:   DefaultBufPoolCapacity,
 		SendQueueCapacity: DefaultSendQueueCapacity,
 		SendLoopCount:     DefaultSendLoopCount,
-		TagFormat:         TagFormatInfluxDB,
+		TagFormat:         StatsdTagFormatInfluxDB,
 	}
 
 	for _, option := range options {
@@ -109,7 +109,7 @@ func (c *StatsdClient) GetLostPackets() int64 {
 // Incr increments a counter metric
 //
 // Often used to note a particular event, for example incoming web request.
-func (c *StatsdClient) Incr(stat string, count int64, tags ...Tag) {
+func (c *StatsdClient) Incr(stat string, count int64, tags ...StatsdTag) {
 	if count != 0 {
 		c.trans.bufLock.Lock()
 		lastLen := len(c.trans.buf)
@@ -135,12 +135,12 @@ func (c *StatsdClient) Incr(stat string, count int64, tags ...Tag) {
 // Decr decrements a counter metri
 //
 // Often used to note a particular event
-func (c *StatsdClient) Decr(stat string, count int64, tags ...Tag) {
+func (c *StatsdClient) Decr(stat string, count int64, tags ...StatsdTag) {
 	c.Incr(stat, -count, tags...)
 }
 
 // FIncr increments a float counter metric
-func (c *StatsdClient) FIncr(stat string, count float64, tags ...Tag) {
+func (c *StatsdClient) FIncr(stat string, count float64, tags ...StatsdTag) {
 	if count != 0 {
 		c.trans.bufLock.Lock()
 		lastLen := len(c.trans.buf)
@@ -164,12 +164,12 @@ func (c *StatsdClient) FIncr(stat string, count float64, tags ...Tag) {
 }
 
 // FDecr decrements a float counter metric
-func (c *StatsdClient) FDecr(stat string, count float64, tags ...Tag) {
+func (c *StatsdClient) FDecr(stat string, count float64, tags ...StatsdTag) {
 	c.FIncr(stat, -count, tags...)
 }
 
 // Timing tracks a duration event, the time delta must be given in milliseconds
-func (c *StatsdClient) Timing(stat string, delta int64, tags ...Tag) {
+func (c *StatsdClient) Timing(stat string, delta int64, tags ...StatsdTag) {
 	c.trans.bufLock.Lock()
 	lastLen := len(c.trans.buf)
 
@@ -194,7 +194,7 @@ func (c *StatsdClient) Timing(stat string, delta int64, tags ...Tag) {
 //
 // Usually request processing time, time to run database query, etc. are used with
 // this metric type.
-func (c *StatsdClient) PrecisionTiming(stat string, delta time.Duration, tags ...Tag) {
+func (c *StatsdClient) PrecisionTiming(stat string, delta time.Duration, tags ...StatsdTag) {
 	c.trans.bufLock.Lock()
 	lastLen := len(c.trans.buf)
 
@@ -215,7 +215,7 @@ func (c *StatsdClient) PrecisionTiming(stat string, delta time.Duration, tags ..
 	c.trans.bufLock.Unlock()
 }
 
-func (c *StatsdClient) igauge(stat string, sign []byte, value int64, tags ...Tag) {
+func (c *StatsdClient) igauge(stat string, sign []byte, value int64, tags ...StatsdTag) {
 	c.trans.bufLock.Lock()
 	lastLen := len(c.trans.buf)
 
@@ -245,7 +245,7 @@ func (c *StatsdClient) igauge(stat string, sign []byte, value int64, tags ...Tag
 // delta to be true, that specifies that the gauge should be updated, not set. Due to the
 // underlying protocol, you can't explicitly set a gauge to a negative number without
 // first setting it to zero.
-func (c *StatsdClient) Gauge(stat string, value int64, tags ...Tag) {
+func (c *StatsdClient) Gauge(stat string, value int64, tags ...StatsdTag) {
 	if value < 0 {
 		c.igauge(stat, nil, 0, tags...)
 	}
@@ -254,7 +254,7 @@ func (c *StatsdClient) Gauge(stat string, value int64, tags ...Tag) {
 }
 
 // GaugeDelta sends a change for a gauge
-func (c *StatsdClient) GaugeDelta(stat string, value int64, tags ...Tag) {
+func (c *StatsdClient) GaugeDelta(stat string, value int64, tags ...StatsdTag) {
 	// Gauge Deltas are always sent with a leading '+' or '-'. The '-' takes care of itself but the '+' must added by hand
 	if value < 0 {
 		c.igauge(stat, nil, value, tags...)
@@ -263,7 +263,7 @@ func (c *StatsdClient) GaugeDelta(stat string, value int64, tags ...Tag) {
 	}
 }
 
-func (c *StatsdClient) fgauge(stat string, sign []byte, value float64, tags ...Tag) {
+func (c *StatsdClient) fgauge(stat string, sign []byte, value float64, tags ...StatsdTag) {
 	c.trans.bufLock.Lock()
 	lastLen := len(c.trans.buf)
 
@@ -286,7 +286,7 @@ func (c *StatsdClient) fgauge(stat string, sign []byte, value float64, tags ...T
 }
 
 // FGauge sends a floating point value for a gauge
-func (c *StatsdClient) FGauge(stat string, value float64, tags ...Tag) {
+func (c *StatsdClient) FGauge(stat string, value float64, tags ...StatsdTag) {
 	if value < 0 {
 		c.igauge(stat, nil, 0, tags...)
 	}
@@ -295,7 +295,7 @@ func (c *StatsdClient) FGauge(stat string, value float64, tags ...Tag) {
 }
 
 // FGaugeDelta sends a floating point change for a gauge
-func (c *StatsdClient) FGaugeDelta(stat string, value float64, tags ...Tag) {
+func (c *StatsdClient) FGaugeDelta(stat string, value float64, tags ...StatsdTag) {
 	if value < 0 {
 		c.fgauge(stat, nil, value, tags...)
 	} else {
@@ -306,7 +306,7 @@ func (c *StatsdClient) FGaugeDelta(stat string, value float64, tags ...Tag) {
 // SetAdd adds unique element to a set
 //
 // Statsd server will provide cardinality of the set over aggregation period.
-func (c *StatsdClient) SetAdd(stat string, value string, tags ...Tag) {
+func (c *StatsdClient) SetAdd(stat string, value string, tags ...StatsdTag) {
 	c.trans.bufLock.Lock()
 	lastLen := len(c.trans.buf)
 

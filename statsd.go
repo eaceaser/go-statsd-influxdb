@@ -52,7 +52,7 @@ tags in InfluxDB and Datadog formats. Format and default tags (applied to every
 metric) are passed as options to the client initialization:
 
     client := statsd.NewStatsdClient("localhost:8125",
-        statsd.TagStyle(TagFormatDatadog),
+        statsd.TagStyle(StatsdTagFormatDatadog),
         statsd.DefaultTags(statsd.StringTag("app", "billing")))
 
 For every metric sent, tags could be added as the last argument(s) to the function
