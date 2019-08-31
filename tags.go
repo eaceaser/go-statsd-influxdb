@@ -1,4 +1,4 @@
-package statsd
+package statsd_influxdb
 
 /*
 
@@ -83,7 +83,7 @@ func Int64Tag(name string, value int64) Tag {
 	return Tag{name: name, intvalue: value, typ: typeInt64}
 }
 
-func (c *Client) formatTags(buf []byte, tags []Tag) []byte {
+func (c *StatsdClient) formatTags(buf []byte, tags []Tag) []byte {
 	tagsLen := len(c.defaultTags) + len(tags)
 	if tagsLen == 0 {
 		return buf

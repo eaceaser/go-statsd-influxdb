@@ -8,7 +8,7 @@ With statsd architecture aggregation is performed on statsd server side (e.g. us
 high-performance servers like statsite), so application emits many metrics per user action.
 Performance of statsd client library is critical to introduce as little overhead as possible.
 
-Client has zero memory allocation per metric being sent, architecture is the following:
+StatsdClient has zero memory allocation per metric being sent, architecture is the following:
 
  * there's ring of buffers, each buffer is UDP packet
  * buffer is taken from the pool, filled with metrics, passed on to the network delivery and
@@ -61,7 +61,7 @@ call:
     client.Incr("request", 1,
         statsd.StringTag("protocol", "http"), statsd.IntTag("port", 80))
 */
-package statsd
+package statsd_influxdb
 
 /*
 
