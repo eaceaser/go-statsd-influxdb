@@ -1,4 +1,4 @@
-package statsd_influxdb
+package statsdinfluxdb
 
 /*
 

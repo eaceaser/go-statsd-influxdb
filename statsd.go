@@ -61,7 +61,7 @@ call:
     client.Incr("request", 1,
         statsd.StringTag("protocol", "http"), statsd.IntTag("port", 80))
 */
-package statsd_influxdb
+package statsdinfluxdb
 
 /*
 
