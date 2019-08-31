@@ -61,38 +61,19 @@ func NewStatsdClient(addr string, options ...Option) *StatsdClient {
 		TagFormat:         TagFormatInfluxDB,
 	}
 
-	c := &StatsdClient{
-		trans: &transport{
-			shutdown: make(chan struct{}),
-		},
-	}
-	// 1024 is room for overflow metric
-	c.trans.bufSize = opts.MaxPacketSize + 1024
-
 	for _, option := range options {
 		option(&opts)
+	}
+
+	t := newTransport(&opts)
+
+	c := &StatsdClient{
+		trans: t,
 	}
 
 	c.metricPrefix = opts.MetricPrefix
 	c.defaultTags = opts.DefaultTags
 	c.tagFormat = opts.TagFormat
-
-	c.trans.maxPacketSize = opts.MaxPacketSize
-	c.trans.buf = make([]byte, 0, c.trans.bufSize)
-	c.trans.bufPool = make(chan []byte, opts.BufPoolCapacity)
-	c.trans.sendQueue = make(chan []byte, opts.SendQueueCapacity)
-
-	go c.trans.flushLoop(opts.FlushInterval)
-
-	for i := 0; i < opts.SendLoopCount; i++ {
-		c.trans.shutdownWg.Add(1)
-		go c.trans.sendLoop(opts.Addr, opts.ReconnectInterval, opts.RetryTimeout, opts.Logger)
-	}
-
-	if opts.ReportInterval > 0 {
-		c.trans.shutdownWg.Add(1)
-		go c.trans.reportLoop(opts.ReportInterval, opts.Logger)
-	}
 
 	return c
 }
@@ -103,13 +84,6 @@ func NewStatsdClient(addr string, options ...Option) *StatsdClient {
 func (c *StatsdClient) Close() error {
 	c.trans.close()
 	return nil
-}
-
-func (t *transport) close() {
-	t.shutdownOnce.Do(func() {
-		close(t.shutdown)
-	})
-	t.shutdownWg.Wait()
 }
 
 // CloneWithPrefix returns a clone of the original client with different metricPrefix.

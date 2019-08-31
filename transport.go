@@ -49,6 +49,39 @@ type transport struct {
 	lostPacketsOverall int64
 }
 
+func newTransport(opts *ClientOptions) *transport {
+	t := &transport {
+		shutdown: make(chan struct{}),
+	}
+
+	t.bufSize = opts.MaxPacketSize + 1024
+	t.maxPacketSize = opts.MaxPacketSize
+	t.buf = make([]byte, 0, t.bufSize)
+	t.bufPool = make(chan []byte, opts.BufPoolCapacity)
+	t.sendQueue = make(chan []byte, opts.SendQueueCapacity)
+
+	go t.flushLoop(opts.FlushInterval)
+
+	for i := 0; i < opts.SendLoopCount; i++ {
+		t.shutdownWg.Add(1)
+		go t.sendLoop(opts.Addr, opts.ReconnectInterval, opts.RetryTimeout, opts.Logger)
+	}
+
+	if opts.ReportInterval > 0 {
+		t.shutdownWg.Add(1)
+		go t.reportLoop(opts.ReportInterval, opts.Logger)
+	}
+
+	return t
+}
+
+func (t *transport) close() {
+	t.shutdownOnce.Do(func() {
+		close(t.shutdown)
+	})
+	t.shutdownWg.Wait()
+}
+
 // flushLoop makes sure metrics are flushed every flushInterval
 func (t *transport) flushLoop(flushInterval time.Duration) {
 	var flushC <-chan time.Time
