@@ -54,7 +54,7 @@ func TestTags(t *testing.T) {
 func TestFormatTags(t *testing.T) {
 	compare := func(tags []Tag, style *TagFormat, expected string) func(*testing.T) {
 		return func(t *testing.T) {
-			client := NewClient("127.0.0.1:4444", TagStyle(style), DefaultTags(StringTag("host", "foo")))
+			client := NewStatsdClient("127.0.0.1:4444", TagStyle(style), DefaultTags(StringTag("host", "foo")))
 			buf := client.formatTags([]byte{}, tags)
 
 			if string(buf) != expected {

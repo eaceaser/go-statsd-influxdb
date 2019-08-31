@@ -63,7 +63,7 @@ func setupListener(t *testing.T) (*net.UDPConn, chan []byte) {
 }
 
 func TestWrongAddress(t *testing.T) {
-	client := NewClient("BOOM:BOOM")
+	client := NewStatsdClient("BOOM:BOOM")
 	if err := client.Close(); err != nil {
 		t.Errorf("error from close: %v", err)
 	}
@@ -72,11 +72,11 @@ func TestWrongAddress(t *testing.T) {
 func TestCommands(t *testing.T) {
 	inSocket, received := setupListener(t)
 
-	client := NewClient(inSocket.LocalAddr().String(),
+	client := NewStatsdClient(inSocket.LocalAddr().String(),
 		MetricPrefix("foo."),
 		MaxPacketSize(1400),
 		ReconnectInterval(10*time.Second))
-	clientTagged := NewClient(inSocket.LocalAddr().String(),
+	clientTagged := NewStatsdClient(inSocket.LocalAddr().String(),
 		TagStyle(TagFormatDatadog),
 		DefaultTags(StringTag("host", "example.com"), Int64Tag("weight", 38)))
 
@@ -224,7 +224,7 @@ func TestCommands(t *testing.T) {
 func TestClones(t *testing.T) {
 	inSocket, received := setupListener(t)
 
-	client := NewClient(inSocket.LocalAddr().String(),
+	client := NewStatsdClient(inSocket.LocalAddr().String(),
 		MetricPrefix("foo."),
 		MaxPacketSize(1400),
 		ReconnectInterval(10*time.Second))
@@ -273,7 +273,7 @@ func TestClones(t *testing.T) {
 func TestConcurrent(t *testing.T) {
 	inSocket, received := setupListener(t)
 
-	client := NewClient(inSocket.LocalAddr().String(), MetricPrefix("foo."), SendLoopCount(3))
+	client := NewStatsdClient(inSocket.LocalAddr().String(), MetricPrefix("foo."), SendLoopCount(3))
 
 	var totalSent, totalReceived int64
 
@@ -365,7 +365,7 @@ func BenchmarkSimple(b *testing.B) {
 
 	}()
 
-	c := NewClient(inSocket.LocalAddr().String(), MetricPrefix("metricPrefix"), MaxPacketSize(1432),
+	c := NewStatsdClient(inSocket.LocalAddr().String(), MetricPrefix("metricPrefix"), MaxPacketSize(1432),
 		FlushInterval(100*time.Millisecond), SendLoopCount(2))
 
 	b.ResetTimer()
@@ -398,7 +398,7 @@ func BenchmarkComplexDelivery(b *testing.B) {
 
 	}()
 
-	client := NewClient(inSocket.LocalAddr().String(), MetricPrefix("foo."))
+	client := NewStatsdClient(inSocket.LocalAddr().String(), MetricPrefix("foo."))
 
 	b.ResetTimer()
 
@@ -432,7 +432,7 @@ func BenchmarkTagged(b *testing.B) {
 
 	}()
 
-	client := NewClient(inSocket.LocalAddr().String(), MetricPrefix("metricPrefix"), MaxPacketSize(1432),
+	client := NewStatsdClient(inSocket.LocalAddr().String(), MetricPrefix("metricPrefix"), MaxPacketSize(1432),
 		FlushInterval(100*time.Millisecond), SendLoopCount(2), DefaultTags(StringTag("host", "foo")),
 		SendQueueCapacity(10), BufPoolCapacity(40))
 

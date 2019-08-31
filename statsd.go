@@ -29,7 +29,7 @@ Usage
 
 Initialize client instance with options, one client per application is usually enough:
 
-    client := statsd.NewClient("localhost:8125",
+    client := statsd.NewStatsdClient("localhost:8125",
         statsd.MaxPacketSize(1400),
         statsd.MetricPrefix("web."))
 
@@ -51,7 +51,7 @@ Metrics could be tagged to support aggregation on TSDB side. go-statsd supports
 tags in InfluxDB and Datadog formats. Format and default tags (applied to every
 metric) are passed as options to the client initialization:
 
-    client := statsd.NewClient("localhost:8125",
+    client := statsd.NewStatsdClient("localhost:8125",
         statsd.TagStyle(TagFormatDatadog),
         statsd.DefaultTags(statsd.StringTag("app", "billing")))
 

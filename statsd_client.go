@@ -40,12 +40,12 @@ type StatsdClient struct {
 	tagFormat    *TagFormat
 }
 
-// NewClient creates new statsd client and starts background processing
+// NewStatsdClient creates new statsd client and starts background processing
 //
 // StatsdClient connects to statsd server at addr ("host:port")
 //
 // StatsdClient settings could be controlled via functions of type Option
-func NewClient(addr string, options ...Option) *StatsdClient {
+func NewStatsdClient(addr string, options ...Option) *StatsdClient {
 	opts := ClientOptions{
 		Addr:              addr,
 		MetricPrefix:      DefaultMetricPrefix,
