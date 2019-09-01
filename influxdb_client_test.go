@@ -82,7 +82,7 @@ func BenchmarkInfluxDBClient(b *testing.B) {
 }
 
 func TestQuoteString(t *testing.T) {
-	cmp := func (src, expected string) func(*testing.T) {
+	cmp := func(src, expected string) func(*testing.T) {
 		return func(t *testing.T) {
 			buf := make([]byte, 0)
 			buf = quoteString(buf, src, true)
