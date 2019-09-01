@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 	"time"
+	"unicode/utf8"
 )
 
 type InfluxDBClient struct {
@@ -67,7 +68,7 @@ func BoolField(name string, value bool) InfluxDBField {
 }
 
 func (f *InfluxDBField) Append(buf []byte) []byte {
-	buf = append(buf, []byte(f.name)...)
+	buf = quoteString(buf, f.name, true)
 	buf = append(buf, '=')
 
 	switch f.t {
@@ -139,7 +140,7 @@ func (c *InfluxDBClient) append(measurement string, tags []InfluxDBTag, fields [
 	c.trans.bufLock.Lock()
 	lastLen := len(c.trans.buf)
 
-	c.trans.buf = append(c.trans.buf, []byte(measurement)...)
+	c.trans.buf = quoteString(c.trans.buf, measurement, false)
 	if len(tags) > 0 {
 		c.trans.buf = appendTags(c.trans.buf, tags)
 	}
@@ -167,9 +168,29 @@ func (c *InfluxDBClient) append(measurement string, tags []InfluxDBTag, fields [
 func appendTags(buf []byte, tags []InfluxDBTag) []byte {
 	for _, tag := range tags {
 		buf = append(buf, ',')
-		buf = append(buf, []byte(tag.Name)...)
+		buf = quoteString(buf, tag.Name, true)
 		buf = append(buf, '=')
-		buf = append(buf, []byte(tag.Value)...)
+		buf = quoteString(buf, tag.Value, true)
+	}
+	return buf
+}
+
+func quoteString(buf []byte, s string, escapeEquals bool) []byte {
+	for _, r := range s {
+		switch {
+		case r == '\\':
+			buf = append(buf, '\\', '\\')
+		case r == ',':
+			buf = append(buf, '\\', ',')
+		case escapeEquals && r == '=':
+			buf = append(buf, '\\', '=')
+		case r == ' ':
+			buf = append(buf, '\\', ' ')
+		default:
+			var tmp [utf8.UTFMax]byte
+			cnt := utf8.EncodeRune(tmp[:], r)
+			buf = append(buf, tmp[:cnt]...)
+		}
 	}
 	return buf
 }

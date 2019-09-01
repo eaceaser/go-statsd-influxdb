@@ -15,7 +15,7 @@ func TestInfluxDBClient(t *testing.T) {
 		IntField("int", 12),
 		FloatField("float", 10.23)}
 
-	tags := []InfluxDBTag{{"herp", "derp"}, {"foo", "bar"}}
+	tags := []InfluxDBTag{{"herp", "derp"}, {"foo", "bar"}, {"herp,", "esc=aped"}}
 	client := NewInfluxDBClient(inSocket.LocalAddr().String())
 	ts := time.Unix(1555734000, 0) // 2019-04-20 04:20 UTC
 
@@ -35,7 +35,7 @@ func TestInfluxDBClient(t *testing.T) {
 
 	t.Run("NoTS", compareOutput(
 		func() { client.Send("testmetric", tags, fields) },
-		[]string{`testmetric,herp=derp,foo=bar string="blah",quotedstring="\"quoted\"",int=12i,float=10.23`}))
+		[]string{`testmetric,herp=derp,foo=bar,herp\,=esc\=aped string="blah",quotedstring="\"quoted\"",int=12i,float=10.23`}))
 	t.Run("TS", compareOutput(
 		func() { client.SendWithTimestamp("testmetric", nil, []InfluxDBField{FloatField("test", 1.2)}, ts) },
 		[]string{"testmetric test=1.2 1555734000000000000"}))
@@ -79,4 +79,33 @@ func BenchmarkInfluxDBClient(b *testing.B) {
 	}
 	_ = c.Close()
 	_ = inSocket.Close()
+}
+
+func TestQuoteString(t *testing.T) {
+	cmp := func (src, expected string) func(*testing.T) {
+		return func(t *testing.T) {
+			buf := make([]byte, 0)
+			buf = quoteString(buf, src, true)
+			str := string(buf)
+			if str != expected {
+				t.Errorf("%s did not match %s", str, expected)
+			}
+		}
+	}
+
+	t.Run("unescaped", cmp("derp", "derp"))
+	t.Run("backslashes", cmp("str\\ing\\\\", "str\\\\ing\\\\\\\\"))
+	t.Run("spaces_commas", cmp("str in,g", "str\\ in\\,g"))
+	t.Run("equals", cmp("str=ing", "str\\=ing"))
+	t.Run("unicode", cmp("st=r🍁i,ng", "st\\=r🍁i\\,ng"))
+	t.Run("unescaped_equals", func(t *testing.T) {
+		src := "str=ing"
+		expected := "str=ing"
+		buf := make([]byte, 0)
+		buf = quoteString(buf, src, false)
+		str := string(buf)
+		if str != expected {
+			t.Errorf("%s did not match %s", str, expected)
+		}
+	})
 }
