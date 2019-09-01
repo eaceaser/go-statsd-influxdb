@@ -8,10 +8,12 @@ import (
 	"unicode/utf8"
 )
 
+// InfluxDBClient implements an InfluxDB line protocol client
 type InfluxDBClient struct {
 	trans *transport
 }
 
+// InfluxDB tag represents a key=value tag pair
 type InfluxDBTag struct {
 	Name  string
 	Value string
@@ -26,6 +28,7 @@ const (
 	influxFieldBool
 )
 
+// InfluxDBField represents a typed key=value field pair
 type InfluxDBField struct {
 	name       string
 	t          influxDBFieldType
@@ -35,6 +38,7 @@ type InfluxDBField struct {
 	boolvalue  bool
 }
 
+// StringField constructs a string-typed InfluxDBField
 func StringField(name string, value string) InfluxDBField {
 	return InfluxDBField{
 		name:     name,
@@ -43,6 +47,7 @@ func StringField(name string, value string) InfluxDBField {
 	}
 }
 
+// IntField constructs an int-typed InfluxDBField
 func IntField(name string, value int64) InfluxDBField {
 	return InfluxDBField{
 		name:     name,
@@ -51,6 +56,7 @@ func IntField(name string, value int64) InfluxDBField {
 	}
 }
 
+// FloatField constructs a float-typed InfluxDBField
 func FloatField(name string, value float64) InfluxDBField {
 	return InfluxDBField{
 		name:       name,
@@ -59,6 +65,7 @@ func FloatField(name string, value float64) InfluxDBField {
 	}
 }
 
+// BoolField constructs a bool-typed InfluxDBField
 func BoolField(name string, value bool) InfluxDBField {
 	return InfluxDBField{
 		name:      name,
@@ -67,6 +74,7 @@ func BoolField(name string, value bool) InfluxDBField {
 	}
 }
 
+// Append appends the representation of the InfluxDBField to the given buffer
 func (f *InfluxDBField) Append(buf []byte) []byte {
 	buf = quoteString(buf, f.name, true)
 	buf = append(buf, '=')
@@ -90,6 +98,7 @@ func (f *InfluxDBField) Append(buf []byte) []byte {
 	return buf
 }
 
+// NewInfluxDBClient returns a newly constructed UDP client for the InfluxDB line protocol
 func NewInfluxDBClient(addr string, options ...Option) *InfluxDBClient {
 	opts := ClientOptions{
 		Addr:              addr,
@@ -119,15 +128,18 @@ func NewInfluxDBClient(addr string, options ...Option) *InfluxDBClient {
 	return c
 }
 
+// Close closes the InfluxDB client connection
 func (c *InfluxDBClient) Close() error {
 	c.trans.close()
 	return nil
 }
 
+// Send sends a non-timestamped metric
 func (c *InfluxDBClient) Send(measurement string, tags []InfluxDBTag, fields []InfluxDBField) {
 	c.append(measurement, tags, fields, nil)
 }
 
+// SendWithTimestamp sends a timestamped metric
 func (c *InfluxDBClient) SendWithTimestamp(measurement string, tags []InfluxDBTag, fields []InfluxDBField, ts time.Time) {
 	c.append(measurement, tags, fields, &ts)
 }
