@@ -8,7 +8,7 @@ With statsd architecture aggregation is performed on statsd server side (e.g. us
 high-performance servers like statsite), so application emits many metrics per user action.
 Performance of statsd client library is critical to introduce as little overhead as possible.
 
-Client has zero memory allocation per metric being sent, architecture is the following:
+StatsdClient has zero memory allocation per metric being sent, architecture is the following:
 
  * there's ring of buffers, each buffer is UDP packet
  * buffer is taken from the pool, filled with metrics, passed on to the network delivery and
@@ -29,7 +29,7 @@ Usage
 
 Initialize client instance with options, one client per application is usually enough:
 
-    client := statsd.NewClient("localhost:8125",
+    client := statsd.NewStatsdClient("localhost:8125",
         statsd.MaxPacketSize(1400),
         statsd.MetricPrefix("web."))
 
@@ -51,8 +51,8 @@ Metrics could be tagged to support aggregation on TSDB side. go-statsd supports
 tags in InfluxDB and Datadog formats. Format and default tags (applied to every
 metric) are passed as options to the client initialization:
 
-    client := statsd.NewClient("localhost:8125",
-        statsd.TagStyle(TagFormatDatadog),
+    client := statsd.NewStatsdClient("localhost:8125",
+        statsd.TagStyle(StatsdTagFormatDatadog),
         statsd.DefaultTags(statsd.StringTag("app", "billing")))
 
 For every metric sent, tags could be added as the last argument(s) to the function
@@ -61,7 +61,7 @@ call:
     client.Incr("request", 1,
         statsd.StringTag("protocol", "http"), statsd.IntTag("port", 80))
 */
-package statsd
+package statsdinfluxdb
 
 /*
 

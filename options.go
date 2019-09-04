@@ -1,7 +1,8 @@
-package statsd
+package statsdinfluxdb
 
 /*
 
+Copyright (c) 2019 Edward Ceaser
 Copyright (c) 2017 Andrey Smirnov
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -36,7 +37,8 @@ const (
 	DefaultReconnectInterval = time.Duration(0)
 	DefaultReportInterval    = time.Minute
 	DefaultRetryTimeout      = 5 * time.Second
-	DefaultLogPrefix         = "[STATSD] "
+	DefaultStatsdLogPrefix   = "[STATSD] "
+	DefaultInfluxDBLogPrefix = "[INFLUXDB] "
 	DefaultBufPoolCapacity   = 20
 	DefaultSendQueueCapacity = 10
 	DefaultSendLoopCount     = 1
@@ -119,16 +121,16 @@ type ClientOptions struct {
 	// value might need to be bumped under high load
 	SendLoopCount int
 
-	// TagFormat controls formatting of StatsD tags
+	// StatsdTagFormat controls formatting of StatsD tags
 	//
 	// If tags are not used, value of this setting isn't used.
 	//
 	// There are two predefined formats: for InfluxDB and Datadog, default
 	// format is InfluxDB tag format.
-	TagFormat *TagFormat
+	TagFormat *StatsdTagFormat
 
 	// DefaultTags is a list of tags to be applied to every metric
-	DefaultTags []Tag
+	DefaultTags []StatsdTag
 }
 
 // Option is type for option transport
@@ -249,14 +251,14 @@ func SendLoopCount(threads int) Option {
 //
 // There are two predefined formats: for InfluxDB and Datadog, default
 // format is InfluxDB tag format.
-func TagStyle(style *TagFormat) Option {
+func TagStyle(style *StatsdTagFormat) Option {
 	return func(c *ClientOptions) {
 		c.TagFormat = style
 	}
 }
 
 // DefaultTags defines a list of tags to be applied to every metric
-func DefaultTags(tags ...Tag) Option {
+func DefaultTags(tags ...StatsdTag) Option {
 	return func(c *ClientOptions) {
 		c.DefaultTags = tags
 	}
