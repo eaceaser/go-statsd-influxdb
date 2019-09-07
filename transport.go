@@ -71,10 +71,7 @@ func newTransport(opts *ClientOptions) *transport {
 
 	t.maxPacketSize = opts.MaxPacketSize
 
-	// can't block, we just initialized pool
-	t.buf = <-t.bufPool.p
-	t.buf = t.buf[0:0]
-
+	t.buf = t.getBuf()
 	t.sendQueue = make(chan []byte, opts.SendQueueCapacity)
 
 	go t.flushLoop(opts.FlushInterval)
@@ -166,7 +163,7 @@ RECONNECT:
 	}()
 
 	if err != nil {
-		log.Printf("[STATSD] Error connecting to server: %s", err)
+		log.Printf("[SATSD] Error connecting to server: %s", err)
 		goto WAIT
 	}
 
@@ -176,6 +173,7 @@ RECONNECT:
 			// Get a buffer from the queue
 			if !ok {
 				_ = sock.Close() // nolint: gosec
+				t.returnBuf(buf)
 				return
 			}
 
@@ -188,16 +186,12 @@ RECONNECT:
 				if err != nil {
 					log.Printf("[STATSD] Error writing to socket: %s", err)
 					_ = sock.Close() // nolint: gosec
+					t.returnBuf(buf)
 					goto WAIT
 				}
 			}
 
-			// return buffer to the pool
-			select {
-			case t.bufPool.p <- buf:
-			default:
-				// pool is full, let GC handle the buf
-			}
+			t.returnBuf(buf)
 		case <-reconnectC:
 			_ = sock.Close() // nolint: gosec
 			goto RECONNECT
@@ -237,6 +231,25 @@ func (t *transport) reportLoop(reportInterval time.Duration, log SomeLogger) {
 	}
 }
 
+func (t *transport) getBuf() []byte {
+	var rv []byte
+	select {
+	case rv = <-t.bufPool.p:
+	default:
+		rv = make([]byte, t.bufPool.poolSize)
+	}
+
+	return rv[0:0]
+}
+
+func (t *transport) returnBuf(buf []byte) {
+	select {
+	case t.bufPool.p <- buf:
+	default:
+		lostBuffers.Inc()
+	}
+}
+
 // checkBuf checks current buffer for overflow, and flushes buffer up to lastLen bytes on overflow
 //
 // overflow part is preserved in flushBuf
@@ -251,14 +264,7 @@ func (t *transport) flushBuf(length int) {
 	sendBuf := t.buf[0:length]
 	tail := t.buf[length:len(t.buf)]
 
-	// get new buffer
-	select {
-	case t.buf = <-t.bufPool.p:
-		t.buf = t.buf[0:0]
-	default:
-		droppedMetrics.Inc()
-		return
-	}
+	t.buf = t.getBuf()
 
 	// copy tail to the new buffer
 	t.buf = append(t.buf, tail...)

@@ -46,11 +46,6 @@ func newPool(opts *ClientOptions) *pool {
 	}
 
 	pool := make(chan []byte, rv.poolSize)
-
-	// Prepopulate pool
-	for i := 0; i < rv.poolSize; i++ {
-		pool <- make([]byte, rv.poolSize)[0:0]
-	}
 	rv.p = pool
 
 	return rv
