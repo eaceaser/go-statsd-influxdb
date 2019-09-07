@@ -1,5 +1,7 @@
 package statsdinfluxdb
 
+import "github.com/prometheus/client_golang/prometheus"
+
 /*
 
 Copyright (c) 2017 Andrey Smirnov
@@ -24,15 +26,22 @@ SOFTWARE.
 
 */
 
+var (
+	lostBuffers = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "statsdinfluxdb_lost_buffers",
+		})
+)
+
 type pool struct {
 	poolSize int
-	bufSize int
-	p chan []byte
+	bufSize  int
+	p        chan []byte
 }
 
 func newPool(opts *ClientOptions) *pool {
-	rv := &pool {
-		bufSize: opts.MaxPacketSize + 1024,
+	rv := &pool{
+		bufSize:  opts.MaxPacketSize + 1024,
 		poolSize: opts.BufPoolCapacity,
 	}
 
@@ -45,4 +54,8 @@ func newPool(opts *ClientOptions) *pool {
 	rv.p = pool
 
 	return rv
+}
+
+func init() {
+	prometheus.MustRegister(lostBuffers)
 }

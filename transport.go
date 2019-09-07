@@ -27,10 +27,24 @@ SOFTWARE.
 
 import (
 	"context"
+	"github.com/prometheus/client_golang/prometheus"
 	"net"
 	"sync"
 	"sync/atomic"
 	"time"
+)
+
+var (
+	droppedMetrics = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "statsdinfluxdb_dropped_metrics",
+		},
+	)
+	packetSendDuration = prometheus.NewHistogram(
+		prometheus.HistogramOpts{
+			Name:    "statsdinfluxdb_packet_send_duration",
+			Buckets: prometheus.DefBuckets,
+		})
 )
 
 type transport struct {
@@ -38,7 +52,7 @@ type transport struct {
 
 	buf       []byte
 	bufLock   sync.Mutex
-	bufPool *pool
+	bufPool   *pool
 	sendQueue chan []byte
 
 	shutdown     chan struct{}
@@ -52,7 +66,7 @@ type transport struct {
 func newTransport(opts *ClientOptions) *transport {
 	t := &transport{
 		shutdown: make(chan struct{}),
-		bufPool: newPool(opts),
+		bufPool:  newPool(opts),
 	}
 
 	t.maxPacketSize = opts.MaxPacketSize
@@ -167,7 +181,10 @@ RECONNECT:
 
 			if len(buf) > 0 {
 				// cut off \n in the end
+				begin := time.Now()
 				_, err := sock.Write(buf[0 : len(buf)-1])
+				duration := time.Since(begin).Seconds()
+				packetSendDuration.Observe(duration)
 				if err != nil {
 					log.Printf("[STATSD] Error writing to socket: %s", err)
 					_ = sock.Close() // nolint: gosec
@@ -239,7 +256,7 @@ func (t *transport) flushBuf(length int) {
 	case t.buf = <-t.bufPool.p:
 		t.buf = t.buf[0:0]
 	default:
-		// XXX: drop metric
+		droppedMetrics.Inc()
 		return
 	}
 
@@ -251,8 +268,13 @@ func (t *transport) flushBuf(length int) {
 	case t.sendQueue <- sendBuf:
 	default:
 		// flush failed, we lost some data
+		droppedMetrics.Inc()
+		lostBuffers.Inc()
 		atomic.AddInt64(&t.lostPacketsPeriod, 1)
 		atomic.AddInt64(&t.lostPacketsOverall, 1)
 	}
+}
 
+func init() {
+	prometheus.MustRegister(droppedMetrics)
 }

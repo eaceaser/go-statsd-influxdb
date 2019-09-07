@@ -8,6 +8,8 @@ import (
 	"unicode/utf8"
 )
 
+var ()
+
 // InfluxDBClient implements an InfluxDB line protocol client
 type InfluxDBClient struct {
 	trans *transport
@@ -153,6 +155,7 @@ func (c *InfluxDBClient) append(measurement string, tags []InfluxDBTag, fields [
 	select {
 	case buf = <-c.trans.bufPool.p:
 	default:
+		droppedMetrics.Inc()
 		return
 	}
 
@@ -184,7 +187,12 @@ func (c *InfluxDBClient) append(measurement string, tags []InfluxDBTag, fields [
 	c.trans.buf = append(c.trans.buf, buf...)
 	c.trans.checkBuf(lastLen)
 	c.trans.bufLock.Unlock()
-	c.trans.bufPool.p <- buf
+
+	select {
+	case c.trans.bufPool.p <- buf:
+	default:
+		lostBuffers.Inc()
+	}
 }
 
 func appendTags(buf []byte, tags []InfluxDBTag) []byte {
