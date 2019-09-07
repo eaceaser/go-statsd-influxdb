@@ -38,22 +38,27 @@ var (
 	droppedMetrics = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "statsdinfluxdb_dropped_metrics",
-		},
-	)
+		})
 	packetSendDuration = prometheus.NewHistogram(
 		prometheus.HistogramOpts{
 			Name:    "statsdinfluxdb_packet_send_duration",
 			Buckets: prometheus.DefBuckets,
+		})
+	lostBuffers = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "statsdinfluxdb_lost_buffers",
 		})
 )
 
 type transport struct {
 	maxPacketSize int
 
-	buf       []byte
-	bufLock   sync.Mutex
-	bufPool   *pool
-	sendQueue chan []byte
+	buf         []byte
+	bufLock     sync.Mutex
+	bufPool     chan []byte
+	bufPoolSize int
+	bufSize     int
+	sendQueue   chan []byte
 
 	shutdown     chan struct{}
 	shutdownOnce sync.Once
@@ -65,13 +70,15 @@ type transport struct {
 
 func newTransport(opts *ClientOptions) *transport {
 	t := &transport{
-		shutdown: make(chan struct{}),
-		bufPool:  newPool(opts),
+		shutdown:      make(chan struct{}),
+		bufPoolSize:   opts.BufPoolCapacity,
+		bufSize:       opts.MaxPacketSize + 1024,
+		maxPacketSize: opts.MaxPacketSize,
 	}
 
-	t.maxPacketSize = opts.MaxPacketSize
-
+	t.bufPool = make(chan []byte, t.bufPoolSize)
 	t.buf = t.getBuf()
+
 	t.sendQueue = make(chan []byte, opts.SendQueueCapacity)
 
 	go t.flushLoop(opts.FlushInterval)
@@ -234,9 +241,9 @@ func (t *transport) reportLoop(reportInterval time.Duration, log SomeLogger) {
 func (t *transport) getBuf() []byte {
 	var rv []byte
 	select {
-	case rv = <-t.bufPool.p:
+	case rv = <-t.bufPool:
 	default:
-		rv = make([]byte, t.bufPool.poolSize)
+		rv = make([]byte, t.bufSize)
 	}
 
 	return rv[0:0]
@@ -244,7 +251,7 @@ func (t *transport) getBuf() []byte {
 
 func (t *transport) returnBuf(buf []byte) {
 	select {
-	case t.bufPool.p <- buf:
+	case t.bufPool <- buf:
 	default:
 		lostBuffers.Inc()
 	}
@@ -284,4 +291,5 @@ func (t *transport) flushBuf(length int) {
 func init() {
 	prometheus.MustRegister(droppedMetrics)
 	prometheus.MustRegister(packetSendDuration)
+	prometheus.MustRegister(lostBuffers)
 }
