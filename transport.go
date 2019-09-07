@@ -44,9 +44,9 @@ var (
 			Name:    "statsdinfluxdb_packet_send_duration",
 			Buckets: prometheus.DefBuckets,
 		})
-	lostBuffers = prometheus.NewCounter(
+	buffersLost = prometheus.NewCounter(
 		prometheus.CounterOpts{
-			Name: "statsdinfluxdb_lost_buffers",
+			Name: "statsdinfluxdb_buffers_lost",
 		})
 )
 
@@ -253,7 +253,7 @@ func (t *transport) returnBuf(buf []byte) {
 	select {
 	case t.bufPool <- buf:
 	default:
-		lostBuffers.Inc()
+		buffersLost.Inc()
 	}
 }
 
@@ -282,7 +282,7 @@ func (t *transport) flushBuf(length int) {
 	default:
 		// flush failed, we lost some data
 		droppedMetrics.Inc()
-		lostBuffers.Inc()
+		buffersLost.Inc()
 		atomic.AddInt64(&t.lostPacketsPeriod, 1)
 		atomic.AddInt64(&t.lostPacketsOverall, 1)
 	}
@@ -291,5 +291,5 @@ func (t *transport) flushBuf(length int) {
 func init() {
 	prometheus.MustRegister(droppedMetrics)
 	prometheus.MustRegister(packetSendDuration)
-	prometheus.MustRegister(lostBuffers)
+	prometheus.MustRegister(buffersLost)
 }
