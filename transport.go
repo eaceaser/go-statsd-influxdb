@@ -277,4 +277,5 @@ func (t *transport) flushBuf(length int) {
 
 func init() {
 	prometheus.MustRegister(droppedMetrics)
+	prometheus.MustRegister(packetSendDuration)
 }
