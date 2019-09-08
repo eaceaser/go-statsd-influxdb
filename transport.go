@@ -170,7 +170,7 @@ RECONNECT:
 	}()
 
 	if err != nil {
-		log.Printf("[SATSD] Error connecting to server: %s", err)
+		log.Printf("[STATSD] Error connecting to server: %s", err)
 		goto WAIT
 	}
 
