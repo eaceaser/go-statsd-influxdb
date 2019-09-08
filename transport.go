@@ -49,6 +49,10 @@ var (
 		prometheus.CounterOpts{
 			Name: "statsdinfluxdb_buffers_lost",
 		})
+	socketWriteErrors = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "statsdinflxudb_socket_write_errors",
+		})
 )
 
 type transport struct {
@@ -201,7 +205,7 @@ RECONNECT:
 					toSend = buf
 				case "udp", "udp4", "upd6", "ip", "ip4", "ip6", "unixgram":
 					// Truncate last newline for datagram packets
-					toSend = buf[0:len(buf)-1]
+					toSend = buf[0 : len(buf)-1]
 				}
 
 				begin := time.Now()
@@ -210,6 +214,7 @@ RECONNECT:
 				packetSendDuration.Observe(duration)
 				if err != nil {
 					log.Printf("[STATSD] Error writing to socket: %s", err)
+					socketWriteErrors.Inc()
 					_ = sock.Close() // nolint: gosec
 					t.returnBuf(buf)
 					goto WAIT
@@ -310,4 +315,5 @@ func init() {
 	prometheus.MustRegister(droppedMetrics)
 	prometheus.MustRegister(packetSendDuration)
 	prometheus.MustRegister(buffersLost)
+	prometheus.MustRegister(socketWriteErrors)
 }

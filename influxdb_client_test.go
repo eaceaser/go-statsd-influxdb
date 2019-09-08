@@ -8,7 +8,7 @@ import (
 
 func setupTcpListener(t *testing.T) (net.Listener, chan []byte) {
 	l, err := net.ListenTCP("tcp4", &net.TCPAddr{
-		IP:   net.IPv4(127, 0, 0, 1),
+		IP: net.IPv4(127, 0, 0, 1),
 	})
 
 	if err != nil {
@@ -89,13 +89,13 @@ func TestInfluxDBTcpClient(t *testing.T) {
 		FloatField("float", 10.23)}
 
 	tags := []InfluxDBTag{{"herp", "derp"}, {"foo", "bar"}, {"herp,", "esc=aped"}}
-	client := NewInfluxDBClient("tcp://"+listener.Addr().String())
+	client := NewInfluxDBClient("tcp://" + listener.Addr().String())
 	ts := time.Unix(1555734000, 0) // 2019-04-20 04:20 UTC
 	client.SendWithTimestamp("testmetric", tags, fields, ts)
 
 	buf := <-received
 	if string(buf) !=
-		`testmetric,herp=derp,foo=bar,herp\,=esc\=aped string="blah",quotedstring="\"quoted\"",int=12i,float=10.23 1555734000000000000` + "\n" {
+		`testmetric,herp=derp,foo=bar,herp\,=esc\=aped string="blah",quotedstring="\"quoted\"",int=12i,float=10.23 1555734000000000000`+"\n" {
 		t.Fatalf("%s does not match expected value", string(buf))
 	}
 
