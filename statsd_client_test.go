@@ -73,11 +73,11 @@ func TestWrongAddress(t *testing.T) {
 func TestCommands(t *testing.T) {
 	inSocket, received := setupListener(t)
 
-	client := NewStatsdClient(inSocket.LocalAddr().String(),
+	client := NewStatsdClient("udp://"+inSocket.LocalAddr().String(),
 		MetricPrefix("foo."),
 		MaxPacketSize(1400),
 		ReconnectInterval(10*time.Second))
-	clientTagged := NewStatsdClient(inSocket.LocalAddr().String(),
+	clientTagged := NewStatsdClient("udp://"+inSocket.LocalAddr().String(),
 		TagStyle(StatsdTagFormatDatadog),
 		DefaultTags(StringTag("host", "example.com"), Int64Tag("weight", 38)))
 
@@ -225,7 +225,7 @@ func TestCommands(t *testing.T) {
 func TestClones(t *testing.T) {
 	inSocket, received := setupListener(t)
 
-	client := NewStatsdClient(inSocket.LocalAddr().String(),
+	client := NewStatsdClient("udp://"+inSocket.LocalAddr().String(),
 		MetricPrefix("foo."),
 		MaxPacketSize(1400),
 		ReconnectInterval(10*time.Second))
@@ -274,7 +274,7 @@ func TestClones(t *testing.T) {
 func TestConcurrent(t *testing.T) {
 	inSocket, received := setupListener(t)
 
-	client := NewStatsdClient(inSocket.LocalAddr().String(), MetricPrefix("foo."), SendLoopCount(3))
+	client := NewStatsdClient("udp://"+inSocket.LocalAddr().String(), MetricPrefix("foo."), SendLoopCount(3))
 
 	var totalSent, totalReceived int64
 
@@ -366,7 +366,7 @@ func BenchmarkSimple(b *testing.B) {
 
 	}()
 
-	c := NewStatsdClient(inSocket.LocalAddr().String(), MetricPrefix("metricPrefix"), MaxPacketSize(1432),
+	c := NewStatsdClient("udp://"+inSocket.LocalAddr().String(), MetricPrefix("metricPrefix"), MaxPacketSize(1432),
 		FlushInterval(100*time.Millisecond), SendLoopCount(2))
 
 	b.ResetTimer()
@@ -399,7 +399,7 @@ func BenchmarkComplexDelivery(b *testing.B) {
 
 	}()
 
-	client := NewStatsdClient(inSocket.LocalAddr().String(), MetricPrefix("foo."))
+	client := NewStatsdClient("udp://"+inSocket.LocalAddr().String(), MetricPrefix("foo."))
 
 	b.ResetTimer()
 
@@ -433,7 +433,7 @@ func BenchmarkTagged(b *testing.B) {
 
 	}()
 
-	client := NewStatsdClient(inSocket.LocalAddr().String(), MetricPrefix("metricPrefix"), MaxPacketSize(1432),
+	client := NewStatsdClient("udp://"+inSocket.LocalAddr().String(), MetricPrefix("metricPrefix"), MaxPacketSize(1432),
 		FlushInterval(100*time.Millisecond), SendLoopCount(2), DefaultTags(StringTag("host", "foo")),
 		SendQueueCapacity(10), BufPoolCapacity(40))
 

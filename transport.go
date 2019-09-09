@@ -29,6 +29,7 @@ import (
 	"context"
 	"github.com/prometheus/client_golang/prometheus"
 	"net"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -47,6 +48,10 @@ var (
 	buffersLost = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Name: "statsdinfluxdb_buffers_lost",
+		})
+	socketWriteErrors = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "statsdinflxudb_socket_write_errors",
 		})
 )
 
@@ -135,14 +140,22 @@ func (t *transport) flushLoop(flushInterval time.Duration) {
 }
 
 // sendLoop handles packet delivery over UDP and periodic reconnects
-func (t *transport) sendLoop(addr string, reconnectInterval, retryTimeout time.Duration, log SomeLogger) {
+func (t *transport) sendLoop(addrUri string, reconnectInterval, retryTimeout time.Duration, log SomeLogger) {
+	defer t.shutdownWg.Done()
+
+	spl := strings.SplitN(addrUri, "://", 2)
+	if len(spl) != 2 {
+		return
+	}
+
+	proto := spl[0]
+	addr := spl[1]
+
 	var (
 		sock       net.Conn
 		err        error
 		reconnectC <-chan time.Time
 	)
-
-	defer t.shutdownWg.Done()
 
 	if reconnectInterval > 0 {
 		reconnectTicker := time.NewTicker(reconnectInterval)
@@ -166,7 +179,7 @@ RECONNECT:
 		}()
 
 		var d net.Dialer
-		return d.DialContext(ctx, "udp", addr)
+		return d.DialContext(ctx, proto, addr)
 	}()
 
 	if err != nil {
@@ -185,13 +198,22 @@ RECONNECT:
 			}
 
 			if len(buf) > 0 {
-				// cut off \n in the end
+				var toSend []byte
+				switch proto {
+				case "tcp", "tcp4", "tcp6", "unix", "unixpacket":
+					toSend = buf
+				case "udp", "udp4", "upd6", "ip", "ip4", "ip6", "unixgram":
+					// Truncate last newline for datagram packets
+					toSend = buf[0 : len(buf)-1]
+				}
+
 				begin := time.Now()
-				_, err := sock.Write(buf[0 : len(buf)-1])
+				_, err := sock.Write(toSend)
 				duration := time.Since(begin).Seconds()
 				packetSendDuration.Observe(duration)
 				if err != nil {
 					log.Printf("[STATSD] Error writing to socket: %s", err)
+					socketWriteErrors.Inc()
 					_ = sock.Close() // nolint: gosec
 					t.returnBuf(buf)
 					goto WAIT
@@ -292,4 +314,5 @@ func init() {
 	prometheus.MustRegister(droppedMetrics)
 	prometheus.MustRegister(packetSendDuration)
 	prometheus.MustRegister(buffersLost)
+	prometheus.MustRegister(socketWriteErrors)
 }

@@ -6,6 +6,40 @@ import (
 	"time"
 )
 
+func setupTcpListener(t *testing.T) (net.Listener, chan []byte) {
+	l, err := net.ListenTCP("tcp4", &net.TCPAddr{
+		IP: net.IPv4(127, 0, 0, 1),
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	received := make(chan []byte)
+
+	go func() {
+		// accept 1 connection
+		conn, err := l.Accept()
+		if err != nil {
+			t.Error(err)
+		}
+
+		for {
+			var buf [1500]byte
+
+			n, err := conn.Read(buf[:])
+			if err != nil {
+				return
+
+			}
+
+			received <- buf[0:n]
+		}
+	}()
+
+	return l, received
+}
+
 func TestInfluxDBClient(t *testing.T) {
 	inSocket, received := setupListener(t)
 
@@ -16,7 +50,7 @@ func TestInfluxDBClient(t *testing.T) {
 		FloatField("float", 10.23)}
 
 	tags := []InfluxDBTag{{"herp", "derp"}, {"foo", "bar"}, {"herp,", "esc=aped"}}
-	client := NewInfluxDBClient(inSocket.LocalAddr().String())
+	client := NewInfluxDBClient("udp://" + inSocket.LocalAddr().String())
 	ts := time.Unix(1555734000, 0) // 2019-04-20 04:20 UTC
 
 	compareOutput := func(actions func(), expected []string) func(*testing.T) {
@@ -45,6 +79,31 @@ func TestInfluxDBClient(t *testing.T) {
 	close(received)
 }
 
+func TestInfluxDBTcpClient(t *testing.T) {
+	listener, received := setupTcpListener(t)
+
+	fields := []InfluxDBField{
+		StringField("string", "blah"),
+		StringField("quotedstring", "\"quoted\""),
+		IntField("int", 12),
+		FloatField("float", 10.23)}
+
+	tags := []InfluxDBTag{{"herp", "derp"}, {"foo", "bar"}, {"herp,", "esc=aped"}}
+	client := NewInfluxDBClient("tcp://" + listener.Addr().String())
+	ts := time.Unix(1555734000, 0) // 2019-04-20 04:20 UTC
+	client.SendWithTimestamp("testmetric", tags, fields, ts)
+
+	buf := <-received
+	if string(buf) !=
+		`testmetric,herp=derp,foo=bar,herp\,=esc\=aped string="blah",quotedstring="\"quoted\"",int=12i,float=10.23 1555734000000000000`+"\n" {
+		t.Fatalf("%s does not match expected value", string(buf))
+	}
+
+	_ = client.Close()
+	_ = listener.Close()
+	close(received)
+}
+
 func BenchmarkInfluxDBClient(b *testing.B) {
 	inSocket, err := net.ListenUDP("udp4", &net.UDPAddr{
 		IP: net.IPv4(127, 0, 0, 1),
@@ -64,7 +123,7 @@ func BenchmarkInfluxDBClient(b *testing.B) {
 
 	}()
 
-	c := NewInfluxDBClient(inSocket.LocalAddr().String(), MaxPacketSize(1432),
+	c := NewInfluxDBClient("udp://"+inSocket.LocalAddr().String(), MaxPacketSize(1432),
 		FlushInterval(100*time.Millisecond), SendLoopCount(2), BufPoolCapacity(1024))
 
 	ts := time.Now()
