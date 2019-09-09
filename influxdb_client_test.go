@@ -65,7 +65,7 @@ func BenchmarkInfluxDBClient(b *testing.B) {
 	}()
 
 	c := NewInfluxDBClient(inSocket.LocalAddr().String(), MaxPacketSize(1432),
-		FlushInterval(100*time.Millisecond), SendLoopCount(2))
+		FlushInterval(100*time.Millisecond), SendLoopCount(2), BufPoolCapacity(1024))
 
 	ts := time.Now()
 

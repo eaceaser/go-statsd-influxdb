@@ -149,32 +149,36 @@ func (c *InfluxDBClient) append(measurement string, tags []InfluxDBTag, fields [
 		return
 	}
 
-	c.trans.bufLock.Lock()
-	lastLen := len(c.trans.buf)
+	buf := c.trans.getBuf()
+	defer c.trans.returnBuf(buf)
 
-	c.trans.buf = quoteString(c.trans.buf, measurement, false)
+	buf = quoteString(buf, measurement, false)
 	if len(tags) > 0 {
-		c.trans.buf = appendTags(c.trans.buf, tags)
+		buf = appendTags(buf, tags)
 	}
-	c.trans.buf = append(c.trans.buf, ' ')
+	buf = append(buf, ' ')
 
 	for i, field := range fields {
-		c.trans.buf = field.Append(c.trans.buf)
+		buf = field.Append(buf)
 
 		if i < len(fields)-1 {
-			c.trans.buf = append(c.trans.buf, ',')
+			buf = append(buf, ',')
 		}
 	}
 
 	if ts != nil {
-		c.trans.buf = append(c.trans.buf, ' ')
-		c.trans.buf = strconv.AppendInt(c.trans.buf, ts.UnixNano(), 10)
+		buf = append(buf, ' ')
+		buf = strconv.AppendInt(buf, ts.UnixNano(), 10)
 	}
 
-	c.trans.buf = append(c.trans.buf, '\n')
+	buf = append(buf, '\n')
 
+	c.trans.bufLock.Lock()
+	lastLen := len(c.trans.buf)
+	c.trans.buf = append(c.trans.buf, buf...)
 	c.trans.checkBuf(lastLen)
 	c.trans.bufLock.Unlock()
+
 }
 
 func appendTags(buf []byte, tags []InfluxDBTag) []byte {

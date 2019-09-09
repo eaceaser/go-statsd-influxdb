@@ -27,20 +27,38 @@ SOFTWARE.
 
 import (
 	"context"
+	"github.com/prometheus/client_golang/prometheus"
 	"net"
 	"sync"
 	"sync/atomic"
 	"time"
 )
 
+var (
+	droppedMetrics = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "statsdinfluxdb_dropped_metrics",
+		})
+	packetSendDuration = prometheus.NewHistogram(
+		prometheus.HistogramOpts{
+			Name:    "statsdinfluxdb_packet_send_duration",
+			Buckets: prometheus.DefBuckets,
+		})
+	buffersLost = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "statsdinfluxdb_buffers_lost",
+		})
+)
+
 type transport struct {
 	maxPacketSize int
 
-	bufPool   chan []byte
-	buf       []byte
-	bufSize   int
-	bufLock   sync.Mutex
-	sendQueue chan []byte
+	buf         []byte
+	bufLock     sync.Mutex
+	bufPool     chan []byte
+	bufPoolSize int
+	bufSize     int
+	sendQueue   chan []byte
 
 	shutdown     chan struct{}
 	shutdownOnce sync.Once
@@ -52,13 +70,15 @@ type transport struct {
 
 func newTransport(opts *ClientOptions) *transport {
 	t := &transport{
-		shutdown: make(chan struct{}),
+		shutdown:      make(chan struct{}),
+		bufPoolSize:   opts.BufPoolCapacity,
+		bufSize:       opts.MaxPacketSize + 1024,
+		maxPacketSize: opts.MaxPacketSize,
 	}
 
-	t.bufSize = opts.MaxPacketSize + 1024
-	t.maxPacketSize = opts.MaxPacketSize
-	t.buf = make([]byte, 0, t.bufSize)
-	t.bufPool = make(chan []byte, opts.BufPoolCapacity)
+	t.bufPool = make(chan []byte, t.bufPoolSize)
+	t.buf = t.getBuf()
+
 	t.sendQueue = make(chan []byte, opts.SendQueueCapacity)
 
 	go t.flushLoop(opts.FlushInterval)
@@ -160,25 +180,25 @@ RECONNECT:
 			// Get a buffer from the queue
 			if !ok {
 				_ = sock.Close() // nolint: gosec
+				t.returnBuf(buf)
 				return
 			}
 
 			if len(buf) > 0 {
 				// cut off \n in the end
+				begin := time.Now()
 				_, err := sock.Write(buf[0 : len(buf)-1])
+				duration := time.Since(begin).Seconds()
+				packetSendDuration.Observe(duration)
 				if err != nil {
 					log.Printf("[STATSD] Error writing to socket: %s", err)
 					_ = sock.Close() // nolint: gosec
+					t.returnBuf(buf)
 					goto WAIT
 				}
 			}
 
-			// return buffer to the pool
-			select {
-			case t.bufPool <- buf:
-			default:
-				// pool is full, let GC handle the buf
-			}
+			t.returnBuf(buf)
 		case <-reconnectC:
 			_ = sock.Close() // nolint: gosec
 			goto RECONNECT
@@ -216,4 +236,60 @@ func (t *transport) reportLoop(reportInterval time.Duration, log SomeLogger) {
 			}
 		}
 	}
+}
+
+func (t *transport) getBuf() []byte {
+	var rv []byte
+	select {
+	case rv = <-t.bufPool:
+	default:
+		rv = make([]byte, t.bufSize)
+	}
+
+	return rv[0:0]
+}
+
+func (t *transport) returnBuf(buf []byte) {
+	select {
+	case t.bufPool <- buf:
+	default:
+		buffersLost.Inc()
+	}
+}
+
+// checkBuf checks current buffer for overflow, and flushes buffer up to lastLen bytes on overflow
+//
+// overflow part is preserved in flushBuf
+func (t *transport) checkBuf(lastLen int) {
+	if len(t.buf) > t.maxPacketSize {
+		t.flushBuf(lastLen)
+	}
+}
+
+// flushBuf sends buffer to the queue and initializes new buffer
+func (t *transport) flushBuf(length int) {
+	sendBuf := t.buf[0:length]
+	tail := t.buf[length:len(t.buf)]
+
+	t.buf = t.getBuf()
+
+	// copy tail to the new buffer
+	t.buf = append(t.buf, tail...)
+
+	// flush current buffer
+	select {
+	case t.sendQueue <- sendBuf:
+	default:
+		// flush failed, we lost some data
+		droppedMetrics.Inc()
+		buffersLost.Inc()
+		atomic.AddInt64(&t.lostPacketsPeriod, 1)
+		atomic.AddInt64(&t.lostPacketsOverall, 1)
+	}
+}
+
+func init() {
+	prometheus.MustRegister(droppedMetrics)
+	prometheus.MustRegister(packetSendDuration)
+	prometheus.MustRegister(buffersLost)
 }
