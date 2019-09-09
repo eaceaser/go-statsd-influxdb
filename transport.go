@@ -198,7 +198,6 @@ RECONNECT:
 			}
 
 			if len(buf) > 0 {
-				// cut off \n in the end
 				var toSend []byte
 				switch proto {
 				case "tcp", "tcp4", "tcp6", "unix", "unixpacket":
